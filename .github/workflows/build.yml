@@ -23,19 +23,29 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 📱 Setup EAS CLI
-        run: |
-          npm install -g eas-cli
-
       - name: 📦 Install Project Dependencies
         run: |
           npm install
 
-      - name: 🔨 Build Local Standalone APK
-        env:
-          EAS_NO_VCS: '1'
+      - name: ⚙️ Expo Prebuild
         run: |
-          eas build --platform android --profile production-apk-local --local --non-interactive --output ./AuraShift-AI.apk
+          npx expo prebuild --platform android --clean
+
+      - name: 🔨 Build Local Standalone Release APK
+        run: |
+          KEYSTORE_PASS=$(node -e "console.log(require('./credentials.json').android.keystore.keystorePassword)")
+          KEY_ALIAS=$(node -e "console.log(require('./credentials.json').android.keystore.keyAlias)")
+          KEY_PASS=$(node -e "console.log(require('./credentials.json').android.keystore.keyPassword)")
+          KEYSTORE_PATH=$(node -e "console.log(require('./credentials.json').android.keystore.keystorePath)")
+
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/../$KEYSTORE_PATH \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASS \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASS
+          cp app/build/outputs/apk/release/app-release.apk ../AuraShift-AI.apk
 
       - name: 🚀 Upload APK Artifact
         uses: actions/upload-artifact@v4
