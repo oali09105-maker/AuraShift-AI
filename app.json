@@ -31,7 +31,7 @@
       "package": "com.zeeucreativestudio.aurashiftai",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0F19"
       },
       "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
