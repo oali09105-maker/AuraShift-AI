@@ -73,7 +73,6 @@ import {
   Settings as SettingsIcon,
   Share2,
   RefreshCw,
-  Lock,
   Play,
   Pause,
   ExternalLink,
@@ -153,7 +152,6 @@ interface CategoryDef {
   label: string;
   icon: React.ComponentType<{ size?: number; color?: string }>;
   color: string;
-  locked?: boolean;
 }
 
 interface JournalEntry {
@@ -183,15 +181,8 @@ const CATEGORIES: CategoryDef[] = [
   { id: 'confidence', label: 'Unshakable Confidence', icon: Sparkles, color: COLORS.violet },
   { id: 'peace', label: 'Inner Peace', icon: HeartHandshake, color: COLORS.success },
   { id: 'focus', label: 'Laser Focus', icon: Focus, color: '#60A5FA' },
+  { id: 'wealthRoyal', label: 'Royal Celestial Wealth', icon: Crown, color: COLORS.gold },
 ];
-
-const ROYAL_CATEGORY: CategoryDef = {
-  id: 'wealthRoyal',
-  label: 'Royal Celestial Wealth',
-  icon: Crown,
-  color: COLORS.gold,
-  locked: true,
-};
 
 // ═════════════════════════════════════════════════════════════════
 // AFFIRMATIONS — 100+ across 4 free categories + a locked Royal pack
@@ -325,7 +316,6 @@ const AFFIRMATIONS: Record<CategoryId, string[]> = {
 };
 
 function getCategory(id: CategoryId): CategoryDef {
-  if (id === 'wealthRoyal') return ROYAL_CATEGORY;
   return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[0];
 }
 
@@ -363,7 +353,6 @@ const STORAGE_KEYS = {
   journal: 'aurashift_journal_v1',
   streak: 'aurashift_streak_v1',
   lastEntryDate: 'aurashift_last_entry_date_v1',
-  royalUnlocked: 'aurashift_royal_unlocked_v1',
   audioEnabled: 'aurashift_audio_enabled_v1',
 };
 
@@ -405,22 +394,6 @@ async function saveStreak(streak: number, lastDate: string): Promise<void> {
   }
 }
 
-async function loadRoyalUnlocked(): Promise<boolean> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEYS.royalUnlocked);
-    return raw === 'true';
-  } catch {
-    return false;
-  }
-}
-
-async function saveRoyalUnlocked(): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.royalUnlocked, 'true');
-  } catch {
-    // ignore
-  }
-}
 
 async function loadAudioEnabled(): Promise<boolean> {
   try {
@@ -597,7 +570,6 @@ function CategoryChip({
       <Text style={[styles.categoryChipText, { color: selected ? category.color : COLORS.textSecondary }]}>
         {category.label}
       </Text>
-      {category.locked && <Lock size={11} color={COLORS.textMuted} style={{ marginLeft: 4 }} />}
     </TouchableOpacity>
   );
 }
@@ -687,28 +659,16 @@ function PrivacyPolicyModal({ visible, onClose }: { visible: boolean; onClose: (
 // HOME TAB — Daily Oracle
 // ═════════════════════════════════════════════════════════════════
 function HomeScreen({
-  royalUnlocked,
-  onRequestUnlockRoyal,
   onAffirmationDrawn,
 }: {
-  royalUnlocked: boolean;
-  onRequestUnlockRoyal: () => void;
   onAffirmationDrawn: () => void;
 }) {
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('wealth');
   const [currentAffirmation, setCurrentAffirmation] = useState<string>(AFFIRMATIONS.wealth[0]);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  const availableCategories = useMemo(() => {
-    return royalUnlocked ? [...CATEGORIES, ROYAL_CATEGORY] : CATEGORIES;
-  }, [royalUnlocked]);
-
   const drawAffirmation = useCallback(
     (categoryId: CategoryId) => {
-      if (categoryId === 'wealthRoyal' && !royalUnlocked) {
-        onRequestUnlockRoyal();
-        return;
-      }
       const pool = AFFIRMATIONS[categoryId];
       const next = pickRandom(pool);
       Animated.sequence([
@@ -718,7 +678,7 @@ function HomeScreen({
       setCurrentAffirmation(next);
       onAffirmationDrawn();
     },
-    [royalUnlocked, fadeAnim, onRequestUnlockRoyal, onAffirmationDrawn],
+    [fadeAnim, onAffirmationDrawn],
   );
 
   const handleCategoryPress = (categoryId: CategoryId) => {
@@ -761,7 +721,7 @@ function HomeScreen({
 
       <Text style={styles.sectionLabel}>Choose Your Focus</Text>
       <View style={styles.categoryGrid}>
-        {availableCategories.map((cat) => (
+        {CATEGORIES.map((cat) => (
           <CategoryChip
             key={cat.id}
             category={cat}
@@ -769,21 +729,7 @@ function HomeScreen({
             onPress={() => handleCategoryPress(cat.id)}
           />
         ))}
-        {!royalUnlocked && (
-          <CategoryChip category={ROYAL_CATEGORY} selected={false} onPress={onRequestUnlockRoyal} />
-        )}
       </View>
-
-      {!royalUnlocked && (
-        <TouchableOpacity style={styles.royalUnlockCard} onPress={onRequestUnlockRoyal}>
-          <Crown size={22} color={COLORS.gold} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.royalUnlockTitle}>Unlock Royal Celestial Wealth</Text>
-            <Text style={styles.royalUnlockSubtitle}>Watch a short ad to unlock 15 exclusive affirmations</Text>
-          </View>
-          <ChevronRight size={18} color={COLORS.textMuted} />
-        </TouchableOpacity>
-      )}
     </ScrollView>
   );
 }
@@ -1185,7 +1131,6 @@ export default function App() {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [streak, setStreak] = useState(0);
   const [lastEntryDate, setLastEntryDate] = useState<string | null>(null);
-  const [royalUnlocked, setRoyalUnlocked] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -1199,16 +1144,14 @@ export default function App() {
   // ---- Load persisted data + init ads/consent on mount ----
   useEffect(() => {
     (async () => {
-      const [entries, streakData, unlocked, audioPref] = await Promise.all([
+      const [entries, streakData, audioPref] = await Promise.all([
         loadJournal(),
         loadStreak(),
-        loadRoyalUnlocked(),
         loadAudioEnabled(),
       ]);
       setJournalEntries(entries);
       setStreak(streakData.streak);
       setLastEntryDate(streakData.lastDate);
-      setRoyalUnlocked(unlocked);
       setAudioEnabled(audioPref);
       setLoaded(true);
 
@@ -1256,7 +1199,7 @@ export default function App() {
     }
   }, [interstitialLoaded]);
 
-  // ---- Rewarded: preload + listeners (unlocks Royal Celestial pack) ----
+  // ---- Rewarded: preload + listeners ----
   const preloadRewarded = useCallback(() => {
     try {
       const ad = RewardedAd.createForAdRequest(AD_UNIT_IDS.rewarded, {
@@ -1274,34 +1217,6 @@ export default function App() {
       return () => {};
     }
   }, []);
-
-  const handleRequestUnlockRoyal = useCallback(() => {
-    if (royalUnlocked) return;
-
-    if (!rewardedLoaded || !rewardedRef.current) {
-      Alert.alert(
-        'Ad not ready',
-        'The unlock ad is still loading. Please try again in a few seconds.',
-      );
-      return;
-    }
-
-    try {
-      const unsubEarned = rewardedRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-        setRoyalUnlocked(true);
-        saveRoyalUnlocked();
-      });
-      const unsubClosed = rewardedRef.current.addAdEventListener(AdEventType.CLOSED, () => {
-        setRewardedLoaded(false);
-        preloadRewarded();
-        unsubEarned();
-        unsubClosed();
-      });
-      rewardedRef.current.show();
-    } catch {
-      Alert.alert('Ad unavailable', 'The unlock ad could not be shown right now. Please try again later.');
-    }
-  }, [royalUnlocked, rewardedLoaded, preloadRewarded]);
 
   // ---- Journal / streak logic ----
   const handleAddJournalEntry = useCallback(
@@ -1366,8 +1281,6 @@ export default function App() {
 
       {activeTab === 'home' && (
         <HomeScreen
-          royalUnlocked={royalUnlocked}
-          onRequestUnlockRoyal={handleRequestUnlockRoyal}
           onAffirmationDrawn={maybeShowInterstitial}
         />
       )}
@@ -1483,18 +1396,6 @@ const styles = StyleSheet.create({
   },
   categoryChipText: { fontSize: 12, fontWeight: '600', marginLeft: 6 },
 
-  royalUnlockCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.gold + '55',
-    marginBottom: 16,
-  },
-  royalUnlockTitle: { color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
-  royalUnlockSubtitle: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
 
   subTabRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
   subTabButton: {

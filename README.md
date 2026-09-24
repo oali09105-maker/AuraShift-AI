@@ -27,9 +27,9 @@ See `assets/README.md` — drop in `icon.png`, `splash.png`, and `banner.png` be
 - Zero public email policy — all support routed through the official website.
 
 ## What's inside App.tsx
-- **Home (Daily Oracle)**: 100+ affirmations across 4 free categories (Wealth &
-  Abundance, Unshakable Confidence, Inner Peace, Laser Focus) + a 15-item
-  "Royal Celestial Wealth" pack unlocked via rewarded ad. Refresh + share
+- **Home (Daily Oracle)**: 115+ affirmations across 5 categories (Wealth &
+  Abundance, Unshakable Confidence, Inner Peace, Laser Focus, Royal Celestial
+  Wealth) — 100% free and unlocked by default for all users. Refresh + share
   (with watermark) built in.
 - **Meditate**: Zen Breath (4-4-4 animated breathing circle, 2-minute session)
   and Frequency Sounds (432Hz Miracle Tone, Alpha Mind Waves, Deep Rest Delta)
